@@ -14,9 +14,15 @@ datasource db {
 }
 
 model Stock {
-  id            Int      @id @default(autoincrement())
-  symbol        String   @unique
-  price         Float
-  movingAverage Float
-  updatedAt     DateTime @updatedAt
+  id           Int          @id @default(autoincrement())
+  symbol       String       @unique
+  priceHistory StockPrice[]
+}
+
+model StockPrice {
+  id        Int      @id @default(autoincrement())
+  price     Float
+  timestamp DateTime @default(now())
+  stock     Stock    @relation(fields: [stockId], references: [id])
+  stockId   Int
 }
