@@ -16,7 +16,12 @@ describe('CronService', () => {
 
   const mockPrismaService = {
     stock: {
-      findUnique: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue({
+        id: 1,
+        symbol: 'NFLX',
+        price: 100,
+        movingAverage: 100,
+      }),
       update: jest.fn(),
     },
     stockPrice: {
@@ -44,10 +49,10 @@ describe('CronService', () => {
   });
 
   describe('startStockPriceUpdates', () => {
-    const symbol = 'NFLX';
+    const stock = { symbol: 'NFLX', id: 1 };
 
     it('should create and schedule a cron job', () => {
-      service.startStockPriceUpdates(symbol);
+      service.startStockPriceUpdates(stock);
       expect(cron.schedule).toHaveBeenCalledWith(
         '* * * * *',
         expect.any(Function),
@@ -55,27 +60,9 @@ describe('CronService', () => {
     });
 
     it('should not create a new job if one already exists', () => {
-      service.startStockPriceUpdates(symbol);
-      service.startStockPriceUpdates(symbol);
+      service.startStockPriceUpdates(stock);
+      service.startStockPriceUpdates(stock);
       expect(cron.schedule).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('stopStockPriceUpdates', () => {
-    const symbol = 'NFLX';
-
-    it('should stop the scheduled task', () => {
-      service.startStockPriceUpdates(symbol);
-      service.stopStockPriceUpdates(symbol);
-
-      const mockScheduledTask = (cron.schedule as jest.Mock).mock.results[0]
-        .value;
-      expect(mockScheduledTask.stop).toHaveBeenCalled();
-    });
-
-    it('should do nothing if no task exists', () => {
-      service.stopStockPriceUpdates('NONEXISTENT');
-      expect(cron.schedule).not.toHaveBeenCalled();
     });
   });
 });

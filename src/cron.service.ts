@@ -1,49 +1,62 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import * as cron from 'node-cron';
 import { PrismaService } from './prisma.service';
+import { FinnhubService } from './finnhub.service';
+import { Stock } from '@prisma/client';
+import { StockSymbol } from './types/stock.types';
 
 @Injectable()
-export class CronService {
+export class CronService implements OnApplicationShutdown {
   private readonly logger = new Logger(CronService.name);
-  private activeTasks: Map<string, cron.ScheduledTask> = new Map();
+  private jobs: Map<StockSymbol, cron.ScheduledTask> = new Map();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly finnhubService: FinnhubService,
+  ) {}
 
-  startStockPriceUpdates(symbol: string): void {
-    if (this.activeTasks.has(symbol)) {
+  startStockPriceUpdates(stockRecord: Stock): void {
+    const symbol = stockRecord.symbol;
+
+    if (this.jobs.has(symbol)) {
       this.logger.log(`Task for ${symbol} already exists`);
       return;
     }
 
-    const task = cron.schedule('* * * * *', async () => {
+    const job = cron.schedule('* * * * *', async () => {
       try {
-        const existingStock = await this.prisma.stock.findUnique({
-          where: { symbol },
+        const currentPrice =
+          await this.finnhubService.getCurrentPriceForStock(symbol);
+
+        await this.prisma.stockPrice.create({
+          data: {
+            price: currentPrice,
+            stockId: stockRecord.id,
+          },
         });
 
-        if (!existingStock) {
-          this.logger.error(`Stock with symbol ${symbol} not found`);
-          return;
+        await this.prisma.stock.update({
+          where: { id: stockRecord.id },
+          data: {
+            priceHistory: {
+              connect: { id: stockRecord.id },
+            },
+          },
+        });
       } catch (error) {
-        this.logger.error(`Error updating data for ${symbol}:`, error);
+        this.logger.error(`Error updating price data for ${symbol}:`, error);
       }
     });
 
-    this.activeTasks.set(symbol, task);
+    this.jobs.set(symbol, job);
     this.logger.log(`Started price updates for ${symbol}`);
   }
 
-  stopStockPriceUpdates(symbol: string): void {
-    const task = this.activeTasks.get(symbol);
-    if (task) {
-      task.stop();
-      this.activeTasks.delete(symbol);
-      this.logger.log(`Stopped price updates for ${symbol}`);
+  async onApplicationShutdown(): Promise<void> {
+    this.logger.log(`Stopping all running jobs`);
+
+    for (const job of this.jobs.values()) {
+      job.stop();
     }
   }
-
-  private calculateMovingAverage(prices: number[]): number {
-    if (prices.length === 0) return 0;
-    const sum = prices.reduce((acc, price) => acc + price, 0);
-    return sum / prices.length;
 }
