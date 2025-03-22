@@ -27,12 +27,13 @@ export class CronService implements OnApplicationShutdown {
 
     const job = cron.schedule('* * * * *', async () => {
       try {
-        const currentPrice =
-          await this.finnhubService.getCurrentPriceForStock(symbol);
+        const quoteData =
+          await this.finnhubService.getCurrentPriceAndTimestampForStock(symbol);
 
         await this.prisma.stockPrice.create({
           data: {
-            price: currentPrice,
+            price: quoteData.price,
+            timestamp: quoteData.timestamp,
             stockId: stock.id,
           },
         });

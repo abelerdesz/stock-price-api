@@ -28,11 +28,12 @@ export class StockService {
     // but we might as well store the stock and the first price seen
     if (!stock) {
       const newStock = await this.getOrCreateStock(symbol);
-      const currentPrice =
-        await this.finnhubService.getCurrentPriceForStock(symbol);
+      const quoteData =
+        await this.finnhubService.getCurrentPriceAndTimestampForStock(symbol);
       const stockPrice = await this.prisma.stockPrice.create({
         data: {
-          price: currentPrice,
+          price: quoteData.price,
+          timestamp: quoteData.timestamp,
           stockId: newStock.id,
         },
       });

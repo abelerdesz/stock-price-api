@@ -22,7 +22,7 @@ model Stock {
 model StockPrice {
   id        Int      @id @default(autoincrement())
   price     Float
-  timestamp DateTime @default(now())
+  timestamp DateTime
   stock     Stock    @relation(fields: [stockId], references: [id])
   stockId   Int
 }

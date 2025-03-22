@@ -32,6 +32,19 @@ export class FinnhubService {
     return validatedData.currentPrice;
   }
 
+  async getCurrentPriceAndTimestampForStock(
+    symbol: string,
+  ): Promise<{ price: number; timestamp: Date }> {
+    await this.throwIfSymbolNotFound(symbol);
+    const finnhubResponse = await this.fetchSymbolAndHandleError(symbol);
+    const validatedData = await this.validateQuoteResponse(finnhubResponse);
+
+    return {
+      price: validatedData.currentPrice,
+      timestamp: validatedData.timestamp,
+    };
+  }
+
   async fetchSymbolAndHandleError(
     symbol: string,
   ): Promise<FinnhubQuoteResponse> {
