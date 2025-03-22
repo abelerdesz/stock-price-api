@@ -12,11 +12,11 @@ export class StockController {
   ) {}
 
   @Get(':symbol')
-  async getSymbol(
+  async getStock(
     @Param()
     params: StockSymbolDto,
   ): Promise<StockMovingAverageResponse> {
-    return this.stockService.getStockWithPriceData(params.symbol);
+    return this.stockService.getStockPriceData(params.symbol);
   }
 
   @Put(':symbol')
@@ -25,8 +25,7 @@ export class StockController {
     params: StockSymbolDto,
   ): Promise<{ message: string }> {
     const stock = await this.stockService.getOrCreateStock(params.symbol);
-
-    this.cronService.startStockPriceUpdates(params.symbol);
+    this.cronService.startStockPriceUpdates(stock);
 
     return {
       message: `Started tracking stock ${params.symbol}`,

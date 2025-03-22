@@ -15,8 +15,8 @@ export class CronService implements OnApplicationShutdown {
     private readonly finnhubService: FinnhubService,
   ) {}
 
-  startStockPriceUpdates(stockRecord: Stock): void {
-    const symbol = stockRecord.symbol;
+  startStockPriceUpdates(stock: Stock): void {
+    const symbol = stock.symbol;
 
     if (this.jobs.has(symbol)) {
       this.logger.log(`Task for ${symbol} already exists`);
@@ -31,15 +31,15 @@ export class CronService implements OnApplicationShutdown {
         await this.prisma.stockPrice.create({
           data: {
             price: currentPrice,
-            stockId: stockRecord.id,
+            stockId: stock.id,
           },
         });
 
         await this.prisma.stock.update({
-          where: { id: stockRecord.id },
+          where: { id: stock.id },
           data: {
             priceHistory: {
-              connect: { id: stockRecord.id },
+              connect: { id: stock.id },
             },
           },
         });
