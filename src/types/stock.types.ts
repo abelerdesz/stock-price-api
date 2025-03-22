@@ -3,3 +3,5 @@ export interface StockMovingAverageResponse {
   movingAverage: number;
   updatedAt: Date;
 }
+
+export type StockSymbol = string;
