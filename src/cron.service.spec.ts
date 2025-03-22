@@ -3,6 +3,7 @@ import { CronService } from './cron.service';
 import { PrismaService } from './prisma.service';
 import { Logger } from '@nestjs/common';
 import * as cron from 'node-cron';
+import { FinnhubService } from './finnhub.service';
 
 jest.mock('node-cron', () => ({
   schedule: jest.fn().mockReturnValue({
@@ -30,6 +31,10 @@ describe('CronService', () => {
     },
   };
 
+  const mockFinnhubService = {
+    getCurrentPriceForStock: jest.fn().mockResolvedValue(100),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -39,6 +44,10 @@ describe('CronService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: FinnhubService,
+          useValue: mockFinnhubService,
         },
       ],
     }).compile();
