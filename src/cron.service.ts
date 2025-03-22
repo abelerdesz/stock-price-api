@@ -15,13 +15,15 @@ export class CronService implements OnApplicationShutdown {
     private readonly finnhubService: FinnhubService,
   ) {}
 
-  startStockPriceUpdates(stock: Stock): void {
+  async startStockPriceUpdates(stock: Stock): Promise<void> {
     const symbol = stock.symbol;
 
     if (this.jobs.has(symbol)) {
       this.logger.log(`Task for ${symbol} already exists`);
       return;
     }
+
+    await this.finnhubService.throwIfSymbolNotFound(symbol);
 
     const job = cron.schedule('* * * * *', async () => {
       try {
@@ -53,7 +55,7 @@ export class CronService implements OnApplicationShutdown {
   }
 
   async onApplicationShutdown(): Promise<void> {
-    this.logger.log(`Stopping all running jobs`);
+    this.logger.log('Stopping all running jobs');
 
     for (const job of this.jobs.values()) {
       job.stop();

@@ -24,6 +24,8 @@ export class StockService {
       },
     });
 
+    // We don't want to start a price update job,
+    // but we might as well store the stock and the first price seen
     if (!stock) {
       const newStock = await this.getOrCreateStock(symbol);
       const currentPrice =

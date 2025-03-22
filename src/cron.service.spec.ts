@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CronService } from './cron.service';
 import { PrismaService } from './prisma.service';
-import { Logger } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import * as cron from 'node-cron';
 import { FinnhubService } from './finnhub.service';
 
@@ -12,6 +12,7 @@ jest.mock('node-cron', () => ({
 }));
 
 describe('CronService', () => {
+  const mockSymbol = 'NFLX';
   let service: CronService;
   let prismaService: PrismaService;
 
@@ -19,7 +20,7 @@ describe('CronService', () => {
     stock: {
       findUnique: jest.fn().mockResolvedValue({
         id: 1,
-        symbol: 'NFLX',
+        symbol: mockSymbol,
         price: 100,
         movingAverage: 100,
       }),
@@ -33,6 +34,15 @@ describe('CronService', () => {
 
   const mockFinnhubService = {
     getCurrentPriceForStock: jest.fn().mockResolvedValue(100),
+    throwIfSymbolNotFound: jest
+      .fn()
+      .mockImplementation(async (symbol: string) => {
+        if (symbol === 'NFLX') {
+          return;
+        }
+
+        throw new NotFoundException(`Stock with symbol '${symbol}' not found`);
+      }),
   };
 
   beforeEach(async () => {
@@ -58,19 +68,19 @@ describe('CronService', () => {
   });
 
   describe('startStockPriceUpdates', () => {
-    const stock = { symbol: 'NFLX', id: 1 };
+    const stock = { symbol: mockSymbol, id: 1 };
 
-    it('should create and schedule a cron job', () => {
-      service.startStockPriceUpdates(stock);
+    it('should create and schedule a cron job', async () => {
+      await service.startStockPriceUpdates(stock);
       expect(cron.schedule).toHaveBeenCalledWith(
         '* * * * *',
         expect.any(Function),
       );
     });
 
-    it('should not create a new job if one already exists', () => {
-      service.startStockPriceUpdates(stock);
-      service.startStockPriceUpdates(stock);
+    it('should not create a new job if one already exists', async () => {
+      await service.startStockPriceUpdates(stock);
+      await service.startStockPriceUpdates(stock);
       expect(cron.schedule).toHaveBeenCalledTimes(1);
     });
   });

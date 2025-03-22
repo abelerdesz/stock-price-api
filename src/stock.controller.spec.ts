@@ -9,6 +9,7 @@ import { StockMovingAverageResponse } from './types/stock.types';
 import { FinnhubService } from './finnhub.service';
 
 describe('StockController', () => {
+  const mockSymbol = 'NFLX';
   let stockController: StockController;
   let stockService: StockService;
   let cronService: CronService;
@@ -32,6 +33,18 @@ describe('StockController', () => {
 
   const mockFinnhubService = {
     getCurrentPriceForStock: jest.fn().mockResolvedValue(100),
+    throwIfSymbolNotFound: jest
+      .fn()
+      .mockImplementation(async (symbol: string) => {
+        const rand = Math.random();
+        if (symbol === mockSymbol) {
+          console.log(`returning ${rand}`);
+          return;
+        }
+
+        console.log(`throwing ${rand}`);
+        throw new NotFoundException(`Stock with symbol '${symbol}' not found`);
+      }),
   };
 
   beforeEach(async () => {
@@ -61,7 +74,6 @@ describe('StockController', () => {
 
   describe('getSymbol', () => {
     it('should return stock information for a valid symbol', async () => {
-      const mockSymbol = 'NFLX';
       const mockResponse: StockMovingAverageResponse = {
         price: 950.84,
         updatedAt: new Date(),
@@ -92,7 +104,6 @@ describe('StockController', () => {
 
   describe('startStockTracking', () => {
     it('should start tracking a stock price via cron job', async () => {
-      const mockSymbol = 'NFLX';
       const mockStock: Stock = {
         id: 1,
         symbol: mockSymbol,
