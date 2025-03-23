@@ -14,8 +14,12 @@ import { Stock } from '@prisma/client';
 @Injectable()
 export class CronService implements OnApplicationShutdown {
   private readonly logger = new Logger(CronService.name);
+
   private jobs: Map<string, cron.ScheduledTask> = new Map();
+
   private activeUpdates = new Set<string>();
+
+  private readonly MAX_TRACKED_STOCKS = 50;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -26,6 +30,12 @@ export class CronService implements OnApplicationShutdown {
     if (this.jobs.has(symbol)) {
       throw new BadRequestException(
         `Stock with symbol ${symbol} is already being tracked`,
+      );
+    }
+
+    if (this.jobs.size >= this.MAX_TRACKED_STOCKS) {
+      throw new BadRequestException(
+        `Cannot track more than ${this.MAX_TRACKED_STOCKS} stocks`,
       );
     }
 
@@ -40,9 +50,8 @@ export class CronService implements OnApplicationShutdown {
     }
 
     // Trigger an initial price fetch to
-    // 1. see if the symbol is valid
+    // 1. if the symbol doesn't exist, let an error be thrown to prevent job creation
     // 2. make GET instantly usable
-    // If the symbol doesn't exist, let an error be thrown to prevent job creation
     await this.doPriceUpdate(stock);
 
     const job = cron.schedule(
@@ -96,7 +105,9 @@ export class CronService implements OnApplicationShutdown {
         });
 
         this.logger.log(
-          `Updated price for ${stock.symbol} to $${quoteData.price} (Published at: ${this.formatDate(quoteData.publishedAt)}, Accessed at: ${this.formatDate(quoteData.accessedAt, true)})`,
+          `Updated price for ${stock.symbol} to $${quoteData.price}
+          (Published at: ${this.formatDate(quoteData.publishedAt)},
+          Accessed at: ${this.formatDate(quoteData.accessedAt, true)})`,
         );
       });
     } catch (error) {
@@ -110,6 +121,7 @@ export class CronService implements OnApplicationShutdown {
           `Error updating price data for ${stock.symbol}:`,
           error,
         );
+
         throw error;
       }
     } finally {
