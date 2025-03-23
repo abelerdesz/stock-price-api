@@ -1,0 +1,62 @@
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: stock-price-db
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${DB_USER:-stockuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-stockpass}
+      POSTGRES_DB: ${DB_NAME:-stockdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-stockuser}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stock-network
+
+  # Database migrations
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-price-migrations
+    command: npx prisma migrate deploy
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-stockuser}:${DB_PASSWORD:-stockpass}@postgres:5432/${DB_NAME:-stockdb}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks:
+      - stock-network
+
+  # API application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-price-api
+    ports:
+      - '3000:3000'
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-stockuser}:${DB_PASSWORD:-stockpass}@postgres:5432/${DB_NAME:-stockdb}?schema=public
+      - FINNHUB_API_TOKEN=${FINNHUB_API_TOKEN}
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - stock-network
+
+networks:
+  stock-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
