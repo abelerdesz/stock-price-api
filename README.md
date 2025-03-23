@@ -14,8 +14,11 @@ Other libraries used:
 
 ### Running in Docker
 
+1. Rename `.env.example` to `.env` and replace `YOUR_FINNHUB_API_TOKEN` with a working Finnhub API key.
+
+2. Run
+
 ```bash
-$ cd stock-price-api
 $ docker compose up -d
 ```
 
@@ -28,11 +31,9 @@ $ docker compose up -d
 
 #### Steps
 
-```bash
-  $ cd stock-price-api
-```
+1. Rename `.env.example` to `.env` and replace `USER`, `PASS`, and `DBNAME` with your local PostgreSQL database's, then replace`YOUR_FINNHUB_API_TOKEN` with a working Finnhub API key.
 
-2. Rename `.env.example` to `.env` and replace `USER`, `PASS`, and `DBNAME` with your local PostgreSQL database's. (Optionally, replace the `FINNHUB_API_TOKEN` provided by Peak to a custom one.)
+2. Run
 
 ```bash
 $ npm install
