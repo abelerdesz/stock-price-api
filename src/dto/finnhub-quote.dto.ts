@@ -1,8 +1,10 @@
-import { IsNumber, IsNotEmpty, Min } from 'class-validator';
-import { Transform, plainToInstance } from 'class-transformer';
+import { IsNumber, IsNotEmpty, Min, IsOptional } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 import { FinnhubQuoteResponse } from '../types/finnhub.types';
 
 export class ValidatedFinnhubQuoteDto {
+  readonly accessedAt: Date = new Date();
+
   @IsNumber()
   @IsNotEmpty()
   c: number; // current price
@@ -31,7 +33,6 @@ export class ValidatedFinnhubQuoteDto {
 
   @IsNumber()
   @IsNotEmpty()
-  @Transform(({ value }) => (typeof value === 'number' ? value : Number(value)))
   t: number; // timestamp
 
   // Normalize values
@@ -63,7 +64,7 @@ export class ValidatedFinnhubQuoteDto {
     return Number(this.pc.toFixed(2));
   }
 
-  get timestamp(): Date {
+  get publishedAt(): Date {
     return new Date(this.t * 1000); // Convert seconds to milliseconds
   }
 

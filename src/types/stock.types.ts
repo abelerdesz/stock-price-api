@@ -4,4 +4,8 @@ export interface StockMovingAverageResponse {
   updatedAt: Date;
 }
 
-export type StockSymbol = string;
+export interface StockPriceData {
+  price: number;
+  publishedAt: Date;
+  accessedAt: Date;
+}
