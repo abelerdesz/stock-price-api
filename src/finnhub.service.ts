@@ -23,10 +23,8 @@ export class FinnhubService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  async getCurrentPriceAndTimestampForStock(
-    symbol: string,
-  ): Promise<StockPriceData> {
-    const finnhubResponse = await this.fetchSymbolAndHandleError(symbol);
+  async getCurrentQuoteForStock(symbol: string): Promise<StockPriceData> {
+    const finnhubResponse = await this.fetchQuoteAndHandleError(symbol);
     const validatedData = await this.validateQuoteResponse(finnhubResponse);
     this.throwIfSymbolNotFound(symbol, validatedData);
 
@@ -37,7 +35,7 @@ export class FinnhubService {
     };
   }
 
-  private async fetchSymbolAndHandleError(
+  private async fetchQuoteAndHandleError(
     symbol: string,
   ): Promise<FinnhubQuoteResponse> {
     const { data } = await firstValueFrom<AxiosResponse<FinnhubQuoteResponse>>(
