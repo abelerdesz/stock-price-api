@@ -43,6 +43,8 @@ $ npm run start:dev
 
 The Swagger API documentation is available at [http://localhost:3000/api]().
 
+There's also a public [Postman collection](https://red-crater-211645.postman.co/workspace/My-Workspace~c7840140-9a5b-4a0a-8918-e0805e3c2bb9/collection/16364487-dfeb6d7d-bc0c-490e-a714-bf41b3dd9653) for testing the various return conditions.
+
 I decided to not store/return any stock information until the user explicitly starts tracking a stock:
 
 ```bash

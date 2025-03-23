@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Put, Param } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { StockPriceResponse } from './types/stock.types';
 import { StockSymbolDto } from './dto/stock.dto';
@@ -61,6 +61,19 @@ export class StockController {
         message: {
           type: 'string',
           example: 'Stock with symbol NFLX is already being tracked',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Stock with symbol does not exist',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Stock with symbol NFLX does not exist on Finnhub',
         },
       },
     },
