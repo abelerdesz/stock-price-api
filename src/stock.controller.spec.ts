@@ -28,23 +28,22 @@ describe('StockController', () => {
   };
 
   const mockCronService = {
-    startStockPriceUpdates: jest.fn(),
+    startStockPriceUpdates: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockFinnhubService = {
-    getCurrentPriceForStock: jest.fn().mockResolvedValue(100),
-    throwIfSymbolNotFound: jest
-      .fn()
-      .mockImplementation(async (symbol: string) => {
-        const rand = Math.random();
-        if (symbol === mockSymbol) {
-          console.log(`returning ${rand}`);
-          return;
-        }
+    getCurrentPriceAndTimestampForStock: jest.fn().mockResolvedValue({
+      price: 350.25,
+      publishedAt: new Date(),
+      accessedAt: new Date(),
+    }),
+    throwIfSymbolNotFound: jest.fn().mockImplementation((symbol: string) => {
+      if (symbol === mockSymbol) {
+        return;
+      }
 
-        console.log(`throwing ${rand}`);
-        throw new NotFoundException(`Stock with symbol '${symbol}' not found`);
-      }),
+      throw new NotFoundException(`Stock with symbol '${symbol}' not found`);
+    }),
   };
 
   beforeEach(async () => {
@@ -72,7 +71,7 @@ describe('StockController', () => {
     cronService = app.get<CronService>(CronService);
   });
 
-  describe('getSymbol', () => {
+  describe('getStock', () => {
     it('should return stock information for a valid symbol', async () => {
       const mockResponse: StockMovingAverageResponse = {
         price: 950.84,
@@ -81,19 +80,21 @@ describe('StockController', () => {
       };
 
       jest
-        .spyOn(stockService, 'getStockPriceData')
+        .spyOn(stockService, 'getStockAndPriceData')
         .mockResolvedValue(mockResponse);
 
       const result = await stockController.getStock({ symbol: mockSymbol });
 
       expect(result).toEqual(mockResponse);
-      expect(stockService.getStockPriceData).toHaveBeenCalledWith(mockSymbol);
+      expect(stockService.getStockAndPriceData).toHaveBeenCalledWith(
+        mockSymbol,
+      );
     });
 
     it('should throw NotFoundException when stock is not found', async () => {
       const validSymbol = 'VLD';
       jest
-        .spyOn(stockService, 'getStockPriceData')
+        .spyOn(stockService, 'getStockAndPriceData')
         .mockRejectedValue(new NotFoundException());
 
       await expect(
@@ -102,25 +103,21 @@ describe('StockController', () => {
     });
   });
 
-  describe('startStockTracking', () => {
-    it('should start tracking a stock price via cron job', async () => {
-      const mockStock: Stock = {
-        id: 1,
-        symbol: mockSymbol,
-      } as Stock;
+  describe('startStockUpdates', () => {
+    it('should start tracking a stock price via stock service', async () => {
+      jest
+        .spyOn(stockService, 'createStockAndStartPriceUpdates')
+        .mockResolvedValue(undefined);
 
-      jest.spyOn(stockService, 'getOrCreateStock').mockResolvedValue(mockStock);
-
-      const result = await stockController.startStockTracking({
+      const result = await stockController.startStockUpdates({
         symbol: mockSymbol,
       });
 
       expect(result).toEqual({
         message: `Started tracking stock ${mockSymbol}`,
       });
-      expect(stockService.getOrCreateStock).toHaveBeenCalledWith(mockSymbol);
-      expect(cronService.startStockPriceUpdates).toHaveBeenCalledWith(
-        mockStock,
+      expect(stockService.createStockAndStartPriceUpdates).toHaveBeenCalledWith(
+        mockSymbol,
       );
     });
   });
