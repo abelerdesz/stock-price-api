@@ -48,9 +48,7 @@ describe('CronService', () => {
   };
 
   const mockFinnhubService = {
-    getCurrentPriceAndTimestampForStock: jest
-      .fn()
-      .mockResolvedValue(mockPriceData),
+    getCurrentQuoteForStock: jest.fn().mockResolvedValue(mockPriceData),
     throwIfSymbolNotFound: jest.fn().mockImplementation((symbol: string) => {
       if (symbol === 'NFLX') {
         return;
@@ -90,9 +88,9 @@ describe('CronService', () => {
         '* * * * *',
         expect.any(Function),
       );
-      expect(
-        finnhubService.getCurrentPriceAndTimestampForStock,
-      ).toHaveBeenCalledWith(mockSymbol);
+      expect(finnhubService.getCurrentQuoteForStock).toHaveBeenCalledWith(
+        mockSymbol,
+      );
     });
 
     it('should not create a new job if one already exists', async () => {
@@ -109,6 +107,24 @@ describe('CronService', () => {
         NotFoundException,
       );
       expect(cron.schedule).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('doPriceUpdate', () => {
+    it('should skip update if another update for the same symbol is in progress', async () => {
+      const mockStock = { id: 1, symbol: mockSymbol };
+
+      // @ts-ignore - Accessing private property for testing
+      service.activeUpdates.add(mockSymbol);
+
+      // @ts-ignore - Accessing private property for testing
+      await service.doPriceUpdate(mockStock);
+
+      expect(finnhubService.getCurrentQuoteForStock).not.toHaveBeenCalled();
+      expect(prismaService.$transaction).not.toHaveBeenCalled();
+
+      // @ts-ignore - Accessing private property for testing
+      service.activeUpdates.delete(mockSymbol);
     });
   });
 
