@@ -1,7 +1,6 @@
 import {
   Injectable,
   Logger,
-  NotFoundException,
   OnApplicationShutdown,
   BadRequestException,
 } from '@nestjs/common';
@@ -10,6 +9,7 @@ import { PrismaService } from './prisma.service';
 import { FinnhubService } from './finnhub.service';
 import { format } from 'date-fns';
 import { Stock } from '@prisma/client';
+import { StockPriceData } from './types/stock.types';
 
 @Injectable()
 export class CronService implements OnApplicationShutdown {
@@ -26,10 +26,10 @@ export class CronService implements OnApplicationShutdown {
     private readonly finnhubService: FinnhubService,
   ) {}
 
-  async startStockPriceUpdates(symbol: string): Promise<void> {
-    if (this.jobs.has(symbol)) {
+  async startStockPriceUpdates(stock: Stock): Promise<void> {
+    if (this.jobs.has(stock.symbol)) {
       throw new BadRequestException(
-        `Stock with symbol ${symbol} is already being tracked`,
+        `Stock with symbol ${stock.symbol} is already being tracked`,
       );
     }
 
@@ -39,28 +39,13 @@ export class CronService implements OnApplicationShutdown {
       );
     }
 
-    const stock = await this.prisma.stock.findUnique({
-      where: { symbol },
-    });
-
-    if (!stock) {
-      throw new NotFoundException(
-        `Stock with symbol ${symbol} has not yet been created`,
-      );
-    }
-
-    // Trigger an initial price fetch to
-    // 1. if the symbol doesn't exist, let an error be thrown to prevent job creation
-    // 2. make GET instantly usable
-    await this.doPriceUpdate(stock);
-
     const job = cron.schedule(
       '* * * * *',
       async () => await this.doPriceUpdate(stock),
     );
 
-    this.jobs.set(symbol, job);
-    this.logger.log(`Started price updates for ${symbol}`);
+    this.jobs.set(stock.symbol, job);
+    this.logger.log(`Started price updates for ${stock.symbol}`);
   }
 
   private async doPriceUpdate(stock: Stock): Promise<void> {
@@ -71,14 +56,20 @@ export class CronService implements OnApplicationShutdown {
       return;
     }
 
-    try {
-      this.activeUpdates.add(stock.symbol);
+    this.activeUpdates.add(stock.symbol);
 
-      const quoteData = await this.finnhubService.getCurrentQuoteForStock(
-        stock.symbol,
-      );
+    const quoteData = await this.finnhubService.getCurrentQuoteForStock(
+      stock.symbol,
+    );
 
-      await this.prisma.$transaction(async (tx) => {
+    await this.updateStockWithQuoteData(stock, quoteData);
+
+    this.activeUpdates.delete(stock.symbol);
+  }
+
+  async updateStockWithQuoteData(stock: Stock, quoteData: StockPriceData) {
+    this.prisma.$transaction(async (tx) => {
+      try {
         const priceRecord = await tx.stockPrice.create({
           data: {
             stockId: stock.id,
@@ -105,28 +96,24 @@ export class CronService implements OnApplicationShutdown {
         });
 
         this.logger.log(
-          `Updated price for ${stock.symbol} to $${quoteData.price}
-          (Published at: ${this.formatDate(quoteData.publishedAt)},
-          Accessed at: ${this.formatDate(quoteData.accessedAt, true)})`,
+          `Updated price for ${stock.symbol} to $${quoteData.price} (Published at: ${this.formatDate(quoteData.publishedAt)}, Accessed at: ${this.formatDate(quoteData.accessedAt, true)})`,
         );
-      });
-    } catch (error) {
-      if (error.code === 'P2002') {
-        // Prisma unique constraint violation code
-        this.logger.log(
-          `No new price available since last run, skipping price update for ${stock.symbol}`,
-        );
-      } else {
-        this.logger.error(
-          `Error updating price data for ${stock.symbol}:`,
-          error,
-        );
+      } catch (error) {
+        if (error.code === 'P2002') {
+          // Prisma unique constraint violation code
+          this.logger.log(
+            `No new price available since last run, skipping price update for ${stock.symbol}`,
+          );
+        } else {
+          this.logger.error(
+            `Error updating price data for ${stock.symbol}:`,
+            error,
+          );
 
-        throw error;
+          throw error;
+        }
       }
-    } finally {
-      this.activeUpdates.delete(stock.symbol);
-    }
+    });
   }
 
   private formatDate(date: Date, short: boolean = false): string {

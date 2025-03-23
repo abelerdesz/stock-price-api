@@ -4,6 +4,7 @@ import { PrismaService } from './prisma.service';
 import { Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import * as cron from 'node-cron';
 import { FinnhubService } from './finnhub.service';
+import { Stock } from '@prisma/client';
 
 jest.mock('node-cron', () => ({
   schedule: jest.fn().mockReturnValue({
@@ -16,6 +17,7 @@ describe('CronService', () => {
   let service: CronService;
   let prismaService: PrismaService;
   let finnhubService: FinnhubService;
+  let mockStock: Stock;
 
   const mockPriceData = {
     price: 350.25,
@@ -61,6 +63,8 @@ describe('CronService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    mockStock = { id: 1, symbol: mockSymbol } as Stock;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CronService,
@@ -83,37 +87,24 @@ describe('CronService', () => {
 
   describe('startStockPriceUpdates', () => {
     it('should create and schedule a cron job', async () => {
-      await service.startStockPriceUpdates(mockSymbol);
+      await service.startStockPriceUpdates(mockStock);
       expect(cron.schedule).toHaveBeenCalledWith(
         '* * * * *',
         expect.any(Function),
       );
-      expect(finnhubService.getCurrentQuoteForStock).toHaveBeenCalledWith(
-        mockSymbol,
-      );
     });
 
     it('should not create a new job if one already exists', async () => {
-      await service.startStockPriceUpdates(mockSymbol);
-      await expect(service.startStockPriceUpdates(mockSymbol)).rejects.toThrow(
+      await service.startStockPriceUpdates(mockStock);
+      await expect(service.startStockPriceUpdates(mockStock)).rejects.toThrow(
         BadRequestException,
       );
       expect(cron.schedule).toHaveBeenCalledTimes(1);
-    });
-
-    it('should throw NotFoundException if stock does not exist', async () => {
-      mockPrismaService.stock.findUnique.mockResolvedValueOnce(null);
-      await expect(service.startStockPriceUpdates(mockSymbol)).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(cron.schedule).not.toHaveBeenCalled();
     });
   });
 
   describe('doPriceUpdate', () => {
     it('should skip update if another update for the same symbol is in progress', async () => {
-      const mockStock = { id: 1, symbol: mockSymbol };
-
       // @ts-ignore - Accessing private property for testing
       service.activeUpdates.add(mockSymbol);
 
@@ -121,10 +112,6 @@ describe('CronService', () => {
       await service.doPriceUpdate(mockStock);
 
       expect(finnhubService.getCurrentQuoteForStock).not.toHaveBeenCalled();
-      expect(prismaService.$transaction).not.toHaveBeenCalled();
-
-      // @ts-ignore - Accessing private property for testing
-      service.activeUpdates.delete(mockSymbol);
     });
   });
 
@@ -133,7 +120,6 @@ describe('CronService', () => {
       const stopMock = jest.fn();
       const mockJob = { stop: stopMock };
 
-      // Manually set jobs in the service
       // @ts-ignore - Accessing private property for testing
       service.jobs.set(mockSymbol, mockJob as any);
 

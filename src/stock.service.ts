@@ -7,12 +7,14 @@ import {
 import { PrismaService } from './prisma.service';
 import { StockPriceResponse } from './types/stock.types';
 import { CronService } from './cron.service';
+import { FinnhubService } from './finnhub.service';
 
 @Injectable()
 export class StockService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cronService: CronService,
+    private readonly finnhubService: FinnhubService,
   ) {}
 
   async getStockAndPriceData(symbol: string): Promise<StockPriceResponse> {
@@ -60,20 +62,25 @@ export class StockService {
   }
 
   async createStockAndStartPriceUpdates(symbol: string) {
+    // If the symbol doesn't exist, let the creation fail
+    const quoteData = await this.finnhubService.getCurrentQuoteForStock(symbol);
+
     const stock = await this.prisma.stock.upsert({
       where: { symbol },
       update: {},
       create: { symbol },
     });
 
-    try {
-      await this.cronService.startStockPriceUpdates(stock.symbol);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+    // Initial price creation
+    await this.cronService.updateStockWithQuoteData(stock, quoteData);
 
-      if (error instanceof NotFoundException) {
+    try {
+      await this.cronService.startStockPriceUpdates(stock);
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
 
