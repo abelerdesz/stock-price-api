@@ -11,6 +11,7 @@ import { AxiosResponse, AxiosError } from 'axios';
 import { FinnhubQuoteResponse } from './types/finnhub.types';
 import { ValidatedFinnhubQuoteDto } from './dto/finnhub-quote.dto';
 import { validate } from 'class-validator';
+import { StockPriceData } from './types/stock.types';
 
 @Injectable()
 export class FinnhubService {
@@ -22,28 +23,21 @@ export class FinnhubService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  async getCurrentPriceForStock(symbol: string): Promise<number> {
-    await this.throwIfSymbolNotFound(symbol);
-    const finnhubResponse = await this.fetchSymbolAndHandleError(symbol);
-    const validatedData = await this.validateQuoteResponse(finnhubResponse);
-
-    return validatedData.currentPrice;
-  }
-
   async getCurrentPriceAndTimestampForStock(
     symbol: string,
-  ): Promise<{ price: number; timestamp: Date }> {
-    await this.throwIfSymbolNotFound(symbol);
+  ): Promise<StockPriceData> {
     const finnhubResponse = await this.fetchSymbolAndHandleError(symbol);
     const validatedData = await this.validateQuoteResponse(finnhubResponse);
+    this.throwIfSymbolNotFound(symbol, validatedData);
 
     return {
       price: validatedData.currentPrice,
-      timestamp: validatedData.timestamp,
+      publishedAt: validatedData.publishedAt,
+      accessedAt: validatedData.accessedAt,
     };
   }
 
-  async fetchSymbolAndHandleError(
+  private async fetchSymbolAndHandleError(
     symbol: string,
   ): Promise<FinnhubQuoteResponse> {
     const { data } = await firstValueFrom<AxiosResponse<FinnhubQuoteResponse>>(
@@ -65,21 +59,6 @@ export class FinnhubService {
     return data;
   }
 
-  async throwIfSymbolNotFound(symbol: string): Promise<void> {
-    const finnhubResponse = await this.fetchSymbolAndHandleError(symbol);
-
-    const validatedData = await this.validateQuoteResponse(finnhubResponse);
-
-    // Finnhub returns 0 for the current price if the symbol is not found
-    // It might not be the most elegant way to check for this, but it works for now
-    if (validatedData.c === 0) {
-      this.logger.error(`Symbol ${symbol} not found on Finnhub.`);
-      throw new NotFoundException(`Stock with symbol '${symbol}' not found`);
-    }
-
-    return;
-  }
-
   private async validateQuoteResponse(
     rawResponse: FinnhubQuoteResponse,
   ): Promise<ValidatedFinnhubQuoteDto> {
@@ -94,5 +73,25 @@ export class FinnhubService {
     }
 
     return dto;
+  }
+
+  private throwIfSymbolNotFound(
+    symbol: string,
+    validatedData: ValidatedFinnhubQuoteDto,
+  ) {
+    // The best indicators I could find for nonexistent symbols are:
+    // - c is 0
+    // - d is null
+    // - dp is null
+    if (
+      validatedData.c === 0 ||
+      validatedData.d === null ||
+      validatedData.dp === null
+    ) {
+      this.logger.error(`Symbol ${symbol} not found on Finnhub.`);
+      throw new NotFoundException(
+        `Stock with symbol '${symbol}' not found on Finnhub`,
+      );
+    }
   }
 }

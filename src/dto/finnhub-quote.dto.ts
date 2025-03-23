@@ -9,11 +9,13 @@ export class ValidatedFinnhubQuoteDto {
   @IsNotEmpty()
   c: number; // current price
 
+  @IsOptional()
   @IsNumber()
-  d: number; // change
+  d: number | null; // change
 
+  @IsOptional()
   @IsNumber()
-  dp: number; // percent change
+  dp: number | null; // percent change
 
   @IsNumber()
   @Min(0)
@@ -40,12 +42,12 @@ export class ValidatedFinnhubQuoteDto {
     return Number(this.c.toFixed(2));
   }
 
-  get change(): number {
-    return Number(this.d.toFixed(2));
+  get change(): number | null {
+    return this.d ? Number(this.d.toFixed(2)) : null;
   }
 
-  get percentChange(): number {
-    return Number(this.dp.toFixed(2));
+  get percentChange(): number | null {
+    return this.dp ? Number(this.dp.toFixed(2)) : null;
   }
 
   get highPrice(): number {

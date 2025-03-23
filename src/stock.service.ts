@@ -1,65 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { StockMovingAverageResponse } from './types/stock.types';
-import { Stock } from '@prisma/client';
-import { FinnhubService } from './finnhub.service';
+import { CronService } from './cron.service';
 
 @Injectable()
 export class StockService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly finnhubService: FinnhubService,
+    private readonly cronService: CronService,
   ) {}
 
-  async getStockPriceData(symbol: string): Promise<StockMovingAverageResponse> {
-    let stock = await this.prisma.stock.findUnique({
+  async getStockAndPriceData(
+    symbol: string,
+  ): Promise<StockMovingAverageResponse> {
+    const stock = await this.prisma.stock.findUnique({
       where: { symbol },
       include: {
         priceHistory: {
           orderBy: {
-            timestamp: 'desc',
+            publishedAt: 'desc',
           },
           take: 10,
         },
       },
     });
 
-    // We don't want to start a price update job,
-    // but we might as well store the stock and the first price seen
     if (!stock) {
-      const newStock = await this.getOrCreateStock(symbol);
-      const quoteData =
-        await this.finnhubService.getCurrentPriceAndTimestampForStock(symbol);
-      const stockPrice = await this.prisma.stockPrice.create({
-        data: {
-          price: quoteData.price,
-          timestamp: quoteData.timestamp,
-          stockId: newStock.id,
-        },
-      });
-
-      stock = await this.prisma.stock.update({
-        where: { id: newStock.id },
-        data: {
-          priceHistory: {
-            connect: { id: stockPrice.id },
-          },
-        },
-        include: {
-          priceHistory: {
-            orderBy: {
-              timestamp: 'desc',
-            },
-            take: 10,
-          },
-        },
-      });
-
-      if (!stock) {
-        throw new NotFoundException(
-          `Failed to retrieve stock with symbol ${symbol}`,
-        );
-      }
+      throw new NotFoundException(
+        `Stock with symbol ${symbol} is not being tracked`,
+      );
     }
 
     const currentPrice =
@@ -69,7 +43,7 @@ export class StockService {
 
     const updatedAt =
       stock.priceHistory && stock.priceHistory.length > 0
-        ? stock.priceHistory[0].timestamp
+        ? stock.priceHistory[0].publishedAt
         : new Date();
 
     // Calculate movingAverage from >up to< 10 latest prices
@@ -81,19 +55,34 @@ export class StockService {
 
     return {
       price: currentPrice,
-      updatedAt,
+      updatedAt:
+        updatedAt instanceof Date ? updatedAt : new Date(Number(updatedAt)),
       movingAverage,
     };
   }
 
-  async getOrCreateStock(symbol: string): Promise<Stock> {
+  async createStockAndStartPriceUpdates(symbol: string) {
     const stock = await this.prisma.stock.upsert({
       where: { symbol },
       update: {},
       create: { symbol },
     });
 
-    return stock;
+    try {
+      await this.cronService.startStockPriceUpdates(stock.symbol);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        `Error starting price updates for ${symbol}`,
+      );
+    }
   }
 
   // A weighted moving average or exponential moving average might be more suitable
@@ -101,6 +90,6 @@ export class StockService {
   private calculateMovingAverage(prices: number[]): number {
     if (prices.length === 0) return 0;
     const sum = prices.reduce((acc, price) => acc + price, 0);
-    return sum / prices.length;
+    return Number((sum / prices.length).toFixed(2));
   }
 }
