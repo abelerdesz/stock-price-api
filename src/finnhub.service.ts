@@ -8,10 +8,8 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { catchError, firstValueFrom } from 'rxjs';
 import { AxiosResponse, AxiosError } from 'axios';
-import {
-  FinnhubQuoteResponse,
-  ValidatedFinnhubQuoteDto,
-} from './types/finnhub.types';
+import { FinnhubQuoteResponse } from './types/finnhub.types';
+import { ValidatedFinnhubQuoteDto } from './dto/finnhub-quote.dto';
 import { validate } from 'class-validator';
 
 @Injectable()
