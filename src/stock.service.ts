@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
-import { StockMovingAverageResponse } from './types/stock.types';
+import { StockPriceResponse } from './types/stock.types';
 import { CronService } from './cron.service';
 
 @Injectable()
@@ -15,9 +15,7 @@ export class StockService {
     private readonly cronService: CronService,
   ) {}
 
-  async getStockAndPriceData(
-    symbol: string,
-  ): Promise<StockMovingAverageResponse> {
+  async getStockAndPriceData(symbol: string): Promise<StockPriceResponse> {
     const stock = await this.prisma.stock.findUnique({
       where: { symbol },
       include: {

@@ -2,10 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { StockController } from './stock.controller';
 import { StockService } from './stock.service';
 import { CronService } from './cron.service';
-import { Stock } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { NotFoundException } from '@nestjs/common';
-import { StockMovingAverageResponse } from './types/stock.types';
+import { StockPriceResponse } from './types/stock.types';
 import { FinnhubService } from './finnhub.service';
 
 describe('StockController', () => {
@@ -73,7 +72,7 @@ describe('StockController', () => {
 
   describe('getStock', () => {
     it('should return stock information for a valid symbol', async () => {
-      const mockResponse: StockMovingAverageResponse = {
+      const mockResponse: StockPriceResponse = {
         price: 950.84,
         updatedAt: new Date(),
         movingAverage: 945.3,

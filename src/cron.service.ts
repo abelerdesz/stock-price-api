@@ -33,10 +33,11 @@ export class CronService implements OnApplicationShutdown {
 
     if (!stock) {
       throw new NotFoundException(
-        `Stock with symbol ${symbol} has not been created`,
+        `Stock with symbol ${symbol} has not yet been created`,
       );
     }
 
+    // If the symbol doesn't exist, let an error be thrown
     let quoteData =
       await this.finnhubService.getCurrentPriceAndTimestampForStock(symbol);
 
