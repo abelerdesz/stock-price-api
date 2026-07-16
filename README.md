@@ -1,10 +1,8 @@
-# Assignment - Advanced Stock Price Checker
+# Stock tracker - NestJS exercise app
 
-## Hi!
+The application was bootstrapped and built upon NestJS with TypeScript, storing data with Prisma/PostgreSQL. It uses Swagger for docs and Docker for containerization.
 
-The application was bootstrapped and built upon NestJS with TypeScript, storing data with Prisma/PostgreSQL. It uses Swagger for docs, and Docker for containerization.
-
-Other libraries used:
+Utility libraries:
 
 - axios
 - node-cron
@@ -22,7 +20,7 @@ Other libraries used:
 $ docker compose up -d
 ```
 
-### Running in local Node.js
+### Running locally with Node
 
 #### Prerequisites
 
@@ -65,5 +63,8 @@ $ cd stock-price-api
 $ npm install
 $ npm run test
 ```
+
+---
+__Disclaimer: any stocks gains you may realize are legally mine__. That may or may not be legally defensible.
 
 Thank you for visiting 🦒
